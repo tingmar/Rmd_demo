@@ -165,4 +165,8 @@ p_age
 
 ```
 
+##Computing environment
+```{r}
+sessionInfo()
+```
 
