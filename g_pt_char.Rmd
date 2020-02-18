@@ -1,0 +1,168 @@
+---
+title: "Simulated Patient Characteristics at Baseline"
+author: "Ting Ma"
+date: '`r lubridate::now(tzone= "America/Los_Angeles")`'
+framework: bootstrap
+highlighter: prettify
+output:
+  html_document:
+    toc: yes
+    toc_float: 
+      collapsed: false
+    code_folding: hide
+    highlight: kate
+---
+
+<style>
+body{
+  font-family: 'Oxygen', sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+h1,h2,h3,h4 {
+  font-family: 'Raleway', sans-serif;
+}
+
+.container { width: 1000px; }
+h3 {
+  background-color: #D4DAEC;
+  text-indent: 100px; 
+}
+h4 {
+  text-indent: 100px;
+}
+
+g-table-intro h4 {
+  text-indent: 0px;
+}
+</style>
+
+
+
+```{r setup, include=FALSE}
+library(knitr)
+library(pander)
+library(janitor)
+library(haven)
+library(Hmisc)
+library(lubridate)
+library(grails3r)
+library(stringr)
+library(plyr)
+library(tidyverse)
+library(janitor)
+library(pander)
+library(readxl)
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+## Introduction   
+This simulation is to demonstrate how Rmd can be used to practice reproducible research.
+To view the rendered html file, add "https://htmlpreview.github.io/?" to the url.
+
+* Population: simulated subjects    
+* Characteristics analyzed:           
+    + Sex   
+    + Age    
+
+##Input datasets
+* input_df.csv
+
+
+```{r adata, warning=F}
+
+rm(list=ls())
+
+options(stringsAsFactors = FALSE)
+
+my_spec <- cols(
+  subjid = col_double(),
+  icdat = col_date(format = ""),
+  network = col_character(),
+  pt_chars = col_character(),
+  value = col_character(),
+  icdat_rev = col_date(format = ""),
+  icdat_rev2 = col_date(format = ""),
+  var_lbl = col_character()
+)
+
+adsl_care_long <- read_csv("/Users/tma/Desktop/g_demo/Rmd_demo/input_df.csv",
+                           col_types = my_spec)
+
+```
+
+##Visualization
+```{r func_here}
+#customer functions------------------------------------------------------
+#my_date <- as.Date(c("2016-01-02", "2016-03-04", "2017-09-08"))
+
+single_year <- function(x){
+      y <- if_else(is.na(lag(x)) | !year(lag(x)) == year(x),
+                          paste(month(x, label = TRUE), "\n", year(x)),
+                          paste(month(x, label = TRUE)))
+
+      return (y)
+}
+
+#x <- single_year(my_date)
+```
+
+###Sex
+```{r p_sex, out.width = "100%"}
+#sex-----------------------------------------------------------------
+d_sex <- adsl_care_long %>%
+      dplyr::filter(pt_chars == "sex") %>%
+      # dplyr::mutate(icdat_rev2 = as.Date(paste0(lubridate::year(icdat), "-", lubridate::month(icdat), "-", "1"))) %>%
+      dplyr::add_count(pt_chars, network, icdat_rev2) %>%
+      dplyr::rename(N = n) %>% 
+      dplyr::add_count(pt_chars, network, icdat_rev2, value ) %>%
+      dplyr::distinct(icdat_rev2, network, pt_chars, network, value, N, n ) %>%
+      dplyr::mutate(pct = n / N)
+
+p_sex <- ggplot(data=d_sex, mapping = (aes(x=icdat_rev2, y=pct))) +
+      geom_point(aes(size=n, color=value)) +
+      #    scale_x_date(date_breaks = "1 month", date_labels = "%y-%b") +
+      scale_fill_brewer(palette="Set3") +
+      facet_wrap(~ network, nrow = 10 ) +
+      theme(text = element_text(size=11)) +
+      scale_size_continuous (breaks = c(20, 100, 200)) +
+      theme(legend.position="bottom", legend.title=element_blank())
+
+
+##fix labels for dates on X axis==
+p_sex <- p_sex + scale_x_date(date_breaks = "1 months",
+                              labels = single_year) +
+      geom_vline(xintercept = as.Date(c("2017-01-01", "2018-01-01")), colour="grey60")
+
+p_sex
+
+```
+
+###Age
+```{r p_age, warning=F,  out.width = "100%"}
+#age ------------------------------------------------------------------------
+d_age <- adsl_care_long %>%
+      dplyr::filter(pt_chars == "age")
+
+
+p_age <- ggplot(data=d_age, mapping = (aes(x=icdat_rev2, y=as.numeric(value), group = icdat_rev2)), na.rm=TRUE) +
+      geom_boxplot(color = "#009999") +
+      scale_fill_brewer(palette="Set3") +
+      facet_wrap (~ network, ncol=1) +
+      scale_y_continuous(name="Age", limits=c(10, 100), breaks = seq(0, 100, 10), minor_breaks = NULL) +
+      theme(legend.position="bottom")
+
+
+p_age <- p_age + scale_x_date(date_breaks = "1 months",
+                     labels = single_year) +
+      geom_vline(xintercept = as.Date(c("2017-01-01", "2018-01-01")), colour="grey60") +
+      theme_bw() +
+      theme(panel.grid.minor = element_blank(), legend.title=element_blank())
+
+p_age
+
+```
+
+
